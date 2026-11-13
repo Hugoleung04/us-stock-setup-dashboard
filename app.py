@@ -207,14 +207,27 @@ def api_recommendations():
 
 @app.route("/api/recommendations/check")
 def api_check_all():
-    """Update performance for all timeframes where enough time has passed."""
+    """Update performance. ORB always updates immediately; daily uses timeframes."""
     recs = load_recs()
     updated = 0
     for r in recs:
         if not r.get("price") or not r.get("date"):
             continue
+        is_orb = r.get("mode") == "orb"
         age = days_since(r["date"])
         current = None
+
+        # For ORB: always refresh current price on check
+        if is_orb:
+            current = get_current_price(r["symbol"])
+            if current is not None:
+                chg = round((current - r["price"]) / r["price"] * 100, 2)
+                r["current_price"] = current
+                r["change_now"] = chg
+                r["outcome_now"] = "win" if current > r["price"] else "loss"
+                updated += 1
+
+        # For daily (and also ORB after enough days): timeframe outcomes
         for tf, min_days in TIMEFRAMES.items():
             if age >= min_days and not r.get(f"outcome_{tf}"):
                 if current is None:
@@ -226,7 +239,7 @@ def api_check_all():
                     r["current_price"] = current
                     updated += 1
     save_recs(recs)
-    return jsonify({"updated": updated, "message": f"Updated {updated} timeframe results"})
+    return jsonify({"updated": updated, "message": f"Updated {updated} results"})
 
 
 @app.route("/api/quote/<symbol>")

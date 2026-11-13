@@ -201,15 +201,17 @@
     async function loadAndCheck() {
       const status = document.getElementById('status');
       const card = document.getElementById('recsCard');
-      status.textContent = '查緊最近 15 隻表現...';
+      status.textContent = '查緊最近表現...';
       card.style.display = 'none';
 
       try {
-        // First trigger update
         await fetch('/api/recommendations/check');
-        // Then load
         const res = await fetch('/api/recommendations');
         const data = await res.json();
+
+        const recent = data.recent || [];
+        const daily = recent.filter(r => (r.mode || 'daily') === 'daily');
+        const orb = recent.filter(r => r.mode === 'orb');
 
         const s = data.stats || {};
         document.getElementById('recsSummary').innerHTML = Object.entries(s)
@@ -217,27 +219,37 @@
           .map(([tf, st]) => `${tf}: ${st.win_rate_pct}% (${st.wins}/${st.checked})`)
           .join(' · ') || '未有足夠時間框架數據';
 
-        document.getElementById('recsList').innerHTML = (data.recent||[]).map(r => {
-          const chg = r.change_1d ?? r.change_1w ?? r.change_1m ?? r.change_6m;
-          const outcome = r.outcome_1d ?? r.outcome_1w ?? r.outcome_1m ?? r.outcome_6m;
-          const chgStr = chg != null ? `${chg > 0 ? '+' : ''}${chg}%` : '—';
-          const cls = outcome === 'win' ? 'win' : outcome === 'loss' ? 'loss' : 'pending';
-          const label = outcome ? outcome.toUpperCase() : '待更新';
-          return `
-            <div class="stock-item">
-              <div>
-                <strong>${r.symbol}</strong>
-                <span class="meta">${r.date} @ $${r.price?.toFixed(2)||'—'}</span>
-                ${r.setups ? `<span class="badge">${(r.setups||[]).join(', ')}</span>` : ''}
+        function renderList(items, title, isOrb = false) {
+          if (!items.length) return '';
+          const rows = items.map(r => {
+            // Prefer immediate change for ORB
+            const chg = isOrb ? (r.change_now ?? r.change_1d) : (r.change_1d ?? r.change_1w ?? r.change_1m ?? r.change_6m);
+            const outcome = isOrb ? (r.outcome_now ?? r.outcome_1d) : (r.outcome_1d ?? r.outcome_1w ?? r.outcome_1m ?? r.outcome_6m);
+            const chgStr = chg != null ? `${chg > 0 ? '+' : ''}${chg}%` : '—';
+            const cls = outcome === 'win' ? 'win' : outcome === 'loss' ? 'loss' : 'pending';
+            const label = outcome ? outcome.toUpperCase() : '待更新';
+            return `
+              <div class="stock-item">
+                <div>
+                  <strong>${r.symbol}</strong>
+                  <span class="meta">${r.date} @ $${r.price?.toFixed(2)||'—'}</span>
+                  ${r.setups ? `<span class="badge">${(r.setups||[]).join(', ')}</span>` : ''}
+                </div>
+                <div style="text-align:right;">
+                  <div class="${cls}">${label}</div>
+                  <div>${chgStr}</div>
+                  ${r.current_price ? `<div class="meta">現 $${r.current_price.toFixed(2)}</div>` : ''}
+                </div>
               </div>
-              <div style="text-align:right;">
-                <div class="${cls}">${label}</div>
-                <div>${chgStr}</div>
-                ${r.current_price ? `<div class="meta">現 $${r.current_price.toFixed(2)}</div>` : ''}
-              </div>
-            </div>
-          `;
-        }).join('') || '<div class="meta">暫時冇記錄。先掃描再查。</div>';
+            `;
+          }).join('');
+          return `<h3 style="margin:16px 0 8px;font-size:1rem;">${title}（${items.length}）</h3>${rows}`;
+        }
+
+        document.getElementById('recsList').innerHTML =
+          renderList(daily, '日線推薦', false) +
+          renderList(orb, '開市突破推薦', true) ||
+          '<div class="meta">暫時冇記錄。先掃描再查。</div>';
 
         card.style.display = 'block';
         status.textContent = '完成';
