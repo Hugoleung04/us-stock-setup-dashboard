@@ -223,8 +223,8 @@
           if (!items.length) return '';
           const rows = items.map(r => {
             // Prefer immediate change for ORB
-            const chg = isOrb ? (r.change_now ?? r.change_1d) : (r.change_1d ?? r.change_1w ?? r.change_1m ?? r.change_6m);
-            const outcome = isOrb ? (r.outcome_now ?? r.outcome_1d) : (r.outcome_1d ?? r.outcome_1w ?? r.outcome_1m ?? r.outcome_6m);
+            const chg = r.change_now ?? r.change_1d ?? r.change_1w;
+            const outcome = r.outcome_now ?? r.outcome_1d ?? r.outcome_1w;
             const chgStr = chg != null ? `${chg > 0 ? '+' : ''}${chg}%` : '—';
             const cls = outcome === 'win' ? 'win' : outcome === 'loss' ? 'loss' : 'pending';
             const label = outcome ? outcome.toUpperCase() : '待更新';

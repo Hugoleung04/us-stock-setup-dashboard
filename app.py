@@ -207,39 +207,37 @@ def api_recommendations():
 
 @app.route("/api/recommendations/check")
 def api_check_all():
-    """Update performance. ORB always updates immediately; daily uses timeframes."""
+    """Update performance. ORB always refreshes immediately."""
     recs = load_recs()
     updated = 0
+    errors = []
     for r in recs:
-        if not r.get("price") or not r.get("date"):
+        if not r.get("price") or not r.get("symbol"):
             continue
-        is_orb = r.get("mode") == "orb"
-        age = days_since(r["date"])
-        current = None
-
-        # For ORB: always refresh current price on check
-        if is_orb:
+        try:
             current = get_current_price(r["symbol"])
-            if current is not None:
-                chg = round((current - r["price"]) / r["price"] * 100, 2)
-                r["current_price"] = current
-                r["change_now"] = chg
-                r["outcome_now"] = "win" if current > r["price"] else "loss"
-                updated += 1
+            if current is None:
+                continue
+            chg = round((current - r["price"]) / r["price"] * 100, 2)
+            r["current_price"] = current
+            r["change_now"] = chg
+            r["outcome_now"] = "win" if current > r["price"] else "loss"
+            updated += 1
 
-        # For daily (and also ORB after enough days): timeframe outcomes
-        for tf, min_days in TIMEFRAMES.items():
-            if age >= min_days and not r.get(f"outcome_{tf}"):
-                if current is None:
-                    current = get_current_price(r["symbol"])
-                if current is not None:
-                    chg = round((current - r["price"]) / r["price"] * 100, 2)
-                    r[f"outcome_{tf}"] = "win" if current > r["price"] else "loss"
+            # Also fill timeframe outcomes if enough days have passed
+            age = days_since(r.get("date", ""))
+            for tf, min_days in TIMEFRAMES.items():
+                if age >= min_days and not r.get(f"outcome_{tf}"):
+                    r[f"outcome_{tf}"] = r["outcome_now"]
                     r[f"change_{tf}"] = chg
-                    r["current_price"] = current
-                    updated += 1
+        except Exception as e:
+            errors.append(str(e))
     save_recs(recs)
-    return jsonify({"updated": updated, "message": f"Updated {updated} results"})
+    return jsonify({
+        "updated": updated,
+        "message": f"Updated {updated} recommendations",
+        "errors": errors[:3]
+    })
 
 
 @app.route("/api/quote/<symbol>")
