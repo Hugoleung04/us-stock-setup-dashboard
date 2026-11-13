@@ -206,21 +206,21 @@ def api_recommendations():
 
 
 def get_current_price(symbol: str):
-    """Fetch current price using the alerts script. Returns float or None."""
-    alerts = SKILL_DIR / "trader-alerts" / "alerts.py"
-    if not alerts.exists():
-        return None
+    """Fetch current price directly from Yahoo Finance. Returns float or None."""
+    import urllib.request
+    import json as _json
     try:
-        r = subprocess.run(
-            [sys.executable, str(alerts), "quote", symbol.upper()],
-            capture_output=True, text=True, timeout=20
-        )
-        for token in r.stdout.split():
-            if token.startswith("$"):
-                try:
-                    return float(token.replace("$", "").replace(",", ""))
-                except ValueError:
-                    continue
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol.upper()}?interval=1m&range=1d"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = _json.loads(resp.read().decode())
+        result = data.get("chart", {}).get("result")
+        if not result:
+            return None
+        meta = result[0].get("meta", {})
+        price = meta.get("regularMarketPrice")
+        if price is not None:
+            return float(price)
         return None
     except Exception:
         return None
