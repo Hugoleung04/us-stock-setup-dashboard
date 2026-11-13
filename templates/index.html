@@ -6,119 +6,149 @@
   <title>US Stock Setup Dashboard</title>
   <style>
     :root {
-      --bg: #0f1419;
-      --card: #1a2332;
+      --bg: #0b0f14;
+      --card: #161b22;
+      --card-hover: #1c232c;
       --accent: #3b82f6;
+      --accent-hover: #2563eb;
       --green: #10b981;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
+      --red: #ef4444;
+      --purple: #8b5cf6;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --border: #30363d;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
     }
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    h1 { margin: 0 0 8px; font-size: 1.8rem; }
-    .subtitle { color: var(--muted); margin-bottom: 24px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 20px 16px 40px; }
+    header { margin-bottom: 20px; }
+    h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 700; }
+    .subtitle { color: var(--muted); font-size: 0.95rem; margin: 0; }
     .disclaimer {
-      background: #1e293b;
-      border-left: 4px solid #f59e0b;
-      padding: 12px 16px;
-      margin-bottom: 24px;
-      border-radius: 6px;
-      font-size: 0.9rem;
+      background: #1c2128;
+      border: 1px solid var(--border);
+      border-left: 3px solid #f59e0b;
+      padding: 12px 14px;
+      margin: 16px 0 20px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
     }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
     button {
       background: var(--accent);
       color: white;
       border: none;
-      padding: 12px 24px;
-      font-size: 1rem;
-      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      border-radius: 10px;
       cursor: pointer;
+      font-weight: 500;
+      transition: background 0.15s;
     }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 24px; margin-top: 24px; }
-    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #30363d; }
+    button.secondary:hover { background: #3d444d; }
+    button.purple { background: var(--purple); }
+    button.purple:hover { background: #7c3aed; }
+    button.green { background: var(--green); }
+    button.green:hover { background: #059669; }
+    .status { color: var(--muted); font-size: 0.9rem; align-self: center; }
     .card {
       background: var(--card);
-      border-radius: 12px;
-      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
     }
-    .card h2 { margin: 0 0 16px; font-size: 1.2rem; }
-    .sector-item, .stock-item {
+    .card h2 { margin: 0 0 14px; font-size: 1.15rem; font-weight: 600; }
+    .heatmap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .heat-item {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      min-width: 90px;
+      text-align: center;
+      background: #1c232c;
+    }
+    .heat-item strong { display: block; font-size: 1.15rem; }
+    .stock-item, .sector-item {
       display: flex;
       justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #2d3748;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
     }
-    .sector-item:last-child, .stock-item:last-child { border-bottom: none; }
+    .stock-item:last-child, .sector-item:last-child { border-bottom: none; }
     .badge {
-      background: #334155;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.8rem;
+      background: #30363d;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      margin-left: 6px;
     }
-    .setup { color: var(--green); font-weight: 600; }
-    .loading { color: var(--muted); }
-    .heatmap {
-      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+    .setup { color: var(--green); font-weight: 600; font-size: 0.85rem; }
+    .meta { font-size: 0.8rem; color: var(--muted); }
+    .win { color: var(--green); font-weight: 600; }
+    .loss { color: var(--red); font-weight: 600; }
+    .pending { color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 800px) {
+      .grid { grid-template-columns: 0.9fr 1.1fr; }
     }
-    .heat-item {
-      padding: 8px 12px; border-radius: 8px; font-size: 0.85rem;
-      background: #1e293b; min-width: 100px; text-align: center;
-    }
-    .heat-item strong { display: block; font-size: 1.1rem; }
+    #results, #recsCard { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>US Stock Setup Dashboard</h1>
-    <p class="subtitle">當日符合技術規則嘅股票 · 按板塊顯示活躍度</p>
+    <header>
+      <h1>US Stock Setup Dashboard</h1>
+      <p class="subtitle">當日符合技術規則嘅股票 · 按板塊顯示活躍度</p>
+    </header>
 
     <div class="disclaimer">
-      <strong>免責聲明：</strong> 呢個係教育同分析工具，唔係投資建議。
-      「符合規則」唔等於值得買。大部分日內交易者都會輸錢。數據來自免費公開來源，可能有延遲。
+      <strong>免責聲明：</strong> 呢個係教育同分析工具，唔係投資建議。「符合規則」唔等於值得買。大部分日內交易者都會輸錢。數據來自免費公開來源，可能有延遲。
     </div>
 
-    <button id="scanBtn" onclick="runScan('daily')">日線掃描</button>
-    <button onclick="runScan('orb')" style="margin-left:8px;background:#8b5cf6;">開市突破 (ORB)</button>
-    <button onclick="loadRecs()" style="margin-left:8px;background:#475569;">睇勝率記錄</button>
-    <button onclick="checkToday()" style="margin-left:8px;background:#10b981;">更新各時間框架</button>
-    <span id="status" class="loading"></span>
+    <div class="btn-row">
+      <button id="scanDaily" onclick="runScan('daily')">日線掃描</button>
+      <button class="purple" onclick="runScan('orb')">開市突破 (ORB)</button>
+      <button class="green" onclick="loadAndCheck()">查最近 15 隻表現</button>
+      <span id="status" class="status"></span>
+    </div>
 
-    <div class="grid" id="results" style="display:none;">
+    <div class="grid" id="results">
       <div class="card">
         <h2>板塊活躍度</h2>
         <div id="heatmap" class="heatmap"></div>
         <div id="sectors"></div>
       </div>
       <div class="card">
-        <h2>符合規則嘅股票（最多 5 隻）</h2>
+        <h2>符合規則嘅股票</h2>
         <div id="stocks"></div>
         <div class="meta" id="scanMeta"></div>
       </div>
     </div>
 
-    <div class="card" id="recsCard" style="margin-top:24px;display:none;">
-      <h2>歷史記錄 / 勝率</h2>
-      <div id="recsSummary" class="meta"></div>
+    <div class="card" id="recsCard">
+      <h2>最近 15 隻推薦 · 由推薦到而家</h2>
+      <div id="recsSummary" class="meta" style="margin-bottom:12px;"></div>
       <div id="recsList"></div>
-      <p class="meta">提示：Render 免費計劃重啟後記錄可能會清空。你可手動標記 win/loss。</p>
     </div>
   </div>
 
   <script>
     async function runScan(mode = 'daily') {
-      const btn = document.getElementById('scanBtn');
       const status = document.getElementById('status');
       const results = document.getElementById('results');
-      btn.disabled = true;
-      status.textContent = mode === 'orb' ? '掃描開市突破中...' : '日線掃描中...（冷啟動可能要 1 分鐘）';
+      status.textContent = mode === 'orb' ? '掃描開市突破中...' : '日線掃描中...';
       results.style.display = 'none';
 
       try {
@@ -126,103 +156,95 @@
         const data = await res.json();
         if (data.error) {
           status.textContent = '錯誤：' + data.error;
-          btn.disabled = false;
           return;
         }
 
-        // Heatmap
-        const maxCount = Math.max(...data.sector_summary.map(s => s.count), 1);
-        document.getElementById('heatmap').innerHTML = data.sector_summary.map(s => {
-          const intensity = Math.round(30 + (s.count / maxCount) * 70);
-          return `<div class="heat-item" style="background:hsl(210,60%,${intensity}%);">
+        const maxCount = Math.max(...(data.sector_summary||[]).map(s => s.count), 1);
+        document.getElementById('heatmap').innerHTML = (data.sector_summary||[]).map(s => {
+          const intensity = Math.round(25 + (s.count / maxCount) * 55);
+          return `<div class="heat-item" style="background:hsl(210,50%,${intensity}%);">
             <strong>${s.count}</strong>${s.sector}
           </div>`;
-        }).join('') || '<div class="loading">暫無</div>';
+        }).join('') || '<div class="meta">暫無</div>';
 
-        // Sectors list
-        document.getElementById('sectors').innerHTML = data.sector_summary.map(s => `
+        document.getElementById('sectors').innerHTML = (data.sector_summary||[]).map(s => `
           <div class="sector-item">
             <span>${s.sector}</span>
-            <span class="badge">${s.count} 隻</span>
+            <span class="badge">${s.count}</span>
           </div>
-        `).join('') || '<div class="loading">暫時冇符合規則嘅股票</div>';
+        `).join('') || '<div class="meta">暫時冇</div>';
 
-        // Stocks with RSI
-        document.getElementById('stocks').innerHTML = data.top_setups.map(h => `
+        document.getElementById('stocks').innerHTML = (data.top_setups||[]).map(h => `
           <div class="stock-item">
             <div>
               <strong>${h.symbol}</strong>
-              <span class="setup">${(h.setups || []).join(', ')}</span>
+              <span class="setup">${(h.setups||[]).join(', ')}</span>
               ${h.rsi ? `<span class="badge">RSI ${h.rsi}</span>` : ''}
             </div>
             <div>
               $${h.price?.toFixed(2) || '—'}
-              <span class="badge">${(h.volume / 1e6).toFixed(1)}M</span>
+              <span class="badge">${(h.volume/1e6).toFixed(1)}M</span>
             </div>
           </div>
-        `).join('') || '<div class="loading">暫時冇符合規則嘅股票</div>';
+        `).join('') || '<div class="meta">暫時冇符合規則嘅股票</div>';
 
         document.getElementById('scanMeta').textContent =
-          `[${data.mode || 'daily'}] 掃描至 ${data.as_of || '—'} · 宇宙 ${data.universe || '—'} · 已掃描 ${data.scanned || 0} 隻` +
-          ` · 流動性通過 ${data.liquid_rate_pct || 0}% · 符合規則 ${data.hits_count || 0} 隻` +
-          ` · 過濾：股價≥$5、成交量≥50萬`;
+          `${data.mode||'daily'} · 至 ${data.as_of||'—'} · 掃描 ${data.scanned||0}/${data.universe||'—'} · 流動性 ${data.liquid_rate_pct||0}% · 符合 ${data.hits_count||0} 隻`;
 
         results.style.display = 'grid';
         status.textContent = '完成';
-        loadRecs();
       } catch (e) {
         status.textContent = '請求失敗：' + e.message;
       }
-      btn.disabled = false;
     }
 
-    async function loadRecs() {
+    async function loadAndCheck() {
+      const status = document.getElementById('status');
+      const card = document.getElementById('recsCard');
+      status.textContent = '查緊最近 15 隻表現...';
+      card.style.display = 'none';
+
       try {
+        // First trigger update
+        await fetch('/api/recommendations/check');
+        // Then load
         const res = await fetch('/api/recommendations');
         const data = await res.json();
-        const card = document.getElementById('recsCard');
-        const summary = document.getElementById('recsSummary');
-        const list = document.getElementById('recsList');
 
         const s = data.stats || {};
-        summary.innerHTML = Object.entries(s).map(([tf, st]) => 
-          st.win_rate_pct !== null
-            ? `<div>${tf}: 勝率 <strong>${st.win_rate_pct}%</strong> （${st.wins}/${st.checked}）</div>`
-            : `<div>${tf}: 未有足夠數據</div>`
-        ).join('') || '暫時冇記錄';
+        document.getElementById('recsSummary').innerHTML = Object.entries(s)
+          .filter(([_, st]) => st.checked > 0)
+          .map(([tf, st]) => `${tf}: ${st.win_rate_pct}% (${st.wins}/${st.checked})`)
+          .join(' · ') || '未有足夠時間框架數據';
 
-        list.innerHTML = data.recent.map(r => {
-          const outcomes = ['1D','1W','1M','6M'].map(tf => 
-            r[`outcome_${tf}`] ? `${tf}:${r[`outcome_${tf}`]}(${r[`change_${tf}`]||''}%)` : ''
-          ).filter(Boolean).join(' ');
+        document.getElementById('recsList').innerHTML = (data.recent||[]).map(r => {
+          const chg = r.change_1d ?? r.change_1w ?? r.change_1m ?? r.change_6m;
+          const outcome = r.outcome_1d ?? r.outcome_1w ?? r.outcome_1m ?? r.outcome_6m;
+          const chgStr = chg != null ? `${chg > 0 ? '+' : ''}${chg}%` : '—';
+          const cls = outcome === 'win' ? 'win' : outcome === 'loss' ? 'loss' : 'pending';
+          const label = outcome ? outcome.toUpperCase() : '待更新';
           return `
             <div class="stock-item">
-              <div>${r.date} <strong>${r.symbol}</strong> @ $${r.price?.toFixed(2)||'—'}</div>
-              <div class="meta">${outcomes || '待更新'}</div>
+              <div>
+                <strong>${r.symbol}</strong>
+                <span class="meta">${r.date} @ $${r.price?.toFixed(2)||'—'}</span>
+                ${r.setups ? `<span class="badge">${(r.setups||[]).join(', ')}</span>` : ''}
+              </div>
+              <div style="text-align:right;">
+                <div class="${cls}">${label}</div>
+                <div>${chgStr}</div>
+                ${r.current_price ? `<div class="meta">現 $${r.current_price.toFixed(2)}</div>` : ''}
+              </div>
             </div>
           `;
-        }).join('') || '<div class="loading">暫時冇記錄</div>';
+        }).join('') || '<div class="meta">暫時冇記錄。先掃描再查。</div>';
 
         card.style.display = 'block';
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function checkToday() {
-      const status = document.getElementById('status');
-      status.textContent = '查緊即日表現...';
-      try {
-        const res = await fetch('/api/recommendations/check');
-        const data = await res.json();
-        status.textContent = data.message || '完成';
-        loadRecs();
+        status.textContent = '完成';
       } catch (e) {
         status.textContent = '查詢失敗：' + e.message;
       }
     }
-
-    async function mark(symbol, outcome) { /* kept for compatibility */ }
   </script>
 </body>
 </html>

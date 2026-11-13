@@ -201,7 +201,7 @@ def api_recommendations():
     return jsonify({
         "total": len(recs),
         "stats": stats,
-        "recent": recs[-30:][::-1],
+        "recent": recs[-15:][::-1],  # latest 15
     })
 
 
