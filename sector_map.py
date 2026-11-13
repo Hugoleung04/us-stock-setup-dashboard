@@ -43,8 +43,26 @@ SECTOR_MAP = {
     "NEE": "Utilities", "DUK": "Utilities", "SO": "Utilities",
     "AMT": "Real Estate", "PLD": "Real Estate", "SPG": "Real Estate",
     "LIN": "Materials", "APD": "Materials", "SHW": "Materials",
-    # Others
-    "ADT": "Industrials", "COIN": "Financials", "HOOD": "Financials", "SOFI": "Financials",
+    # Additional common names that often appear in scans
+    "ANET": "Technology", "APP": "Technology", "AESI": "Industrials",
+    "SMCI": "Technology", "ARM": "Technology", "MU": "Technology",
+    "TSM": "Technology", "ASML": "Technology", "LRCX": "Technology",
+    "KLAC": "Technology", "AMAT": "Technology", "SNPS": "Technology",
+    "CDNS": "Technology", "MRVL": "Technology", "ON": "Technology",
+    "ENPH": "Technology", "SEDG": "Technology", "FSLR": "Technology",
+    "CEG": "Utilities", "VST": "Utilities", "NRG": "Utilities",
+    "OXY": "Energy", "HAL": "Energy", "BKR": "Energy",
+    "DAL": "Industrials", "UAL": "Industrials", "AAL": "Industrials",
+    "BA": "Industrials", "GE": "Industrials", "RTX": "Industrials",
+    "LMT": "Industrials", "NOC": "Industrials",
+    "CVS": "Healthcare", "CI": "Healthcare", "HUM": "Healthcare",
+    "ELV": "Healthcare", "CNC": "Healthcare",
+    "BAC": "Financials", "WFC": "Financials", "C": "Financials",
+    "USB": "Financials", "PNC": "Financials", "TFC": "Financials",
+    "BK": "Financials", "STT": "Financials",
+    "DIS": "Communication Services", "CMCSA": "Communication Services",
+    "NFLX": "Communication Services", "PARA": "Communication Services",
+    "WBD": "Communication Services",
 }
 
 def get_sector(symbol: str) -> str:

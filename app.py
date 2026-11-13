@@ -128,33 +128,39 @@ def api_scan():
 
     top = sorted(hits, key=lambda h: h.get("volume", 0), reverse=True)[:5]
 
-    # Auto-record top setups for win-rate tracking
+    # Auto-record top setups — dedupe: same symbol + same date only once
     recs = load_recs()
     today = datetime.utcnow().strftime("%Y-%m-%d")
+    existing = {(r["symbol"], r["date"]) for r in recs}
     for h in top:
+        key = (h["symbol"], today)
+        if key in existing:
+            continue
         recs.append({
             "date": today,
             "symbol": h["symbol"],
             "setups": h.get("setups", []),
             "price": h.get("price"),
             "volume": h.get("volume"),
-            "outcome": None,  # later: win / loss / pending
+            "rsi": h.get("rsi"),
         })
-    # Keep last 200 records
-    save_recs(recs[-200:])
+        existing.add(key)
+    save_recs(recs[-300:])
 
     counts = data.get("counts", {})
+    liquid_rate = round(data.get("scanned", 0) / max(counts.get("fetched", 1), 1) * 100, 1)
     return jsonify({
         "as_of": data.get("as_of"),
         "universe": data.get("universe"),
         "scanned": data.get("scanned"),
         "fetched": counts.get("fetched"),
         "illiquid": counts.get("illiquid"),
+        "liquid_rate_pct": liquid_rate,
         "hits_count": len(hits),
         "sector_summary": sector_summary,
         "top_setups": top,
         "note": data.get("note", "A scan is a list of charts that match a rule, not a list of stocks to buy."),
-        "disclaimer": "Educational tooling only. Not financial advice. Most day traders lose money."
+        "disclaimer": "Educational tooling only. Not financial advice. Most day traders lose money. Past rule matches do not predict future results."
     })
 
 

@@ -109,7 +109,7 @@
       const status = document.getElementById('status');
       const results = document.getElementById('results');
       btn.disabled = true;
-      status.textContent = '掃描中...（可能要 2–3 分鐘）';
+      status.textContent = '掃描中...（冷啟動可能要 1 分鐘，掃描要 2–3 分鐘）';
       results.style.display = 'none';
 
       try {
@@ -148,8 +148,8 @@
           : '<div class="loading">暫時冇符合規則嘅股票</div>';
 
         document.getElementById('scanMeta').textContent =
-          `掃描至 ${data.as_of || '—'} · 宇宙 ${data.universe || '—'} · 已掃描 ${data.scanned || 0} 隻 · 符合規則 ${data.hits_count || 0} 隻` +
-          (data.illiquid ? ` · 流動性不足 ${data.illiquid}` : '') +
+          `掃描至 ${data.as_of || '—'} · 宇宙 ${data.universe || '—'} · 已掃描 ${data.scanned || 0} 隻` +
+          ` · 流動性通過 ${data.liquid_rate_pct || 0}% · 符合規則 ${data.hits_count || 0} 隻` +
           ` · 過濾：股價≥$5、成交量≥100萬`;
 
         results.style.display = 'grid';
