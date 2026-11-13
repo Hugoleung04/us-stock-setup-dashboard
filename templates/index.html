@@ -65,7 +65,14 @@
     }
     .setup { color: var(--green); font-weight: 600; }
     .loading { color: var(--muted); }
-    .meta { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+    .heatmap {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+    }
+    .heat-item {
+      padding: 8px 12px; border-radius: 8px; font-size: 0.85rem;
+      background: #1e293b; min-width: 100px; text-align: center;
+    }
+    .heat-item strong { display: block; font-size: 1.1rem; }
   </style>
 </head>
 <body>
@@ -78,7 +85,8 @@
       「符合規則」唔等於值得買。大部分日內交易者都會輸錢。數據來自免費公開來源，可能有延遲。
     </div>
 
-    <button id="scanBtn" onclick="runScan()">重新掃描</button>
+    <button id="scanBtn" onclick="runScan('daily')">日線掃描</button>
+    <button onclick="runScan('orb')" style="margin-left:8px;background:#8b5cf6;">開市突破 (ORB)</button>
     <button onclick="loadRecs()" style="margin-left:8px;background:#475569;">睇勝率記錄</button>
     <button onclick="checkToday()" style="margin-left:8px;background:#10b981;">更新各時間框架</button>
     <span id="status" class="loading"></span>
@@ -86,6 +94,7 @@
     <div class="grid" id="results" style="display:none;">
       <div class="card">
         <h2>板塊活躍度</h2>
+        <div id="heatmap" class="heatmap"></div>
         <div id="sectors"></div>
       </div>
       <div class="card">
@@ -104,16 +113,16 @@
   </div>
 
   <script>
-    async function runScan() {
+    async function runScan(mode = 'daily') {
       const btn = document.getElementById('scanBtn');
       const status = document.getElementById('status');
       const results = document.getElementById('results');
       btn.disabled = true;
-      status.textContent = '掃描中...（冷啟動可能要 1 分鐘，掃描要 2–3 分鐘）';
+      status.textContent = mode === 'orb' ? '掃描開市突破中...' : '日線掃描中...（冷啟動可能要 1 分鐘）';
       results.style.display = 'none';
 
       try {
-        const res = await fetch('/api/scan');
+        const res = await fetch('/api/scan?mode=' + mode);
         const data = await res.json();
         if (data.error) {
           status.textContent = '錯誤：' + data.error;
@@ -121,36 +130,42 @@
           return;
         }
 
-        const sectorsEl = document.getElementById('sectors');
-        sectorsEl.innerHTML = data.sector_summary.length
-          ? data.sector_summary.map(s => `
-              <div class="sector-item">
-                <span>${s.sector}</span>
-                <span class="badge">${s.count} 隻</span>
-              </div>
-            `).join('')
-          : '<div class="loading">暫時冇符合規則嘅股票</div>';
+        // Heatmap
+        const maxCount = Math.max(...data.sector_summary.map(s => s.count), 1);
+        document.getElementById('heatmap').innerHTML = data.sector_summary.map(s => {
+          const intensity = Math.round(30 + (s.count / maxCount) * 70);
+          return `<div class="heat-item" style="background:hsl(210,60%,${intensity}%);">
+            <strong>${s.count}</strong>${s.sector}
+          </div>`;
+        }).join('') || '<div class="loading">暫無</div>';
 
-        const stocksEl = document.getElementById('stocks');
-        stocksEl.innerHTML = data.top_setups.length
-          ? data.top_setups.map(h => `
-              <div class="stock-item">
-                <div>
-                  <strong>${h.symbol}</strong>
-                  <span class="setup">${(h.setups || []).join(', ')}</span>
-                </div>
-                <div>
-                  $${h.price?.toFixed(2) || '—'}
-                  <span class="badge">${(h.volume / 1e6).toFixed(1)}M</span>
-                </div>
-              </div>
-            `).join('')
-          : '<div class="loading">暫時冇符合規則嘅股票</div>';
+        // Sectors list
+        document.getElementById('sectors').innerHTML = data.sector_summary.map(s => `
+          <div class="sector-item">
+            <span>${s.sector}</span>
+            <span class="badge">${s.count} 隻</span>
+          </div>
+        `).join('') || '<div class="loading">暫時冇符合規則嘅股票</div>';
+
+        // Stocks with RSI
+        document.getElementById('stocks').innerHTML = data.top_setups.map(h => `
+          <div class="stock-item">
+            <div>
+              <strong>${h.symbol}</strong>
+              <span class="setup">${(h.setups || []).join(', ')}</span>
+              ${h.rsi ? `<span class="badge">RSI ${h.rsi}</span>` : ''}
+            </div>
+            <div>
+              $${h.price?.toFixed(2) || '—'}
+              <span class="badge">${(h.volume / 1e6).toFixed(1)}M</span>
+            </div>
+          </div>
+        `).join('') || '<div class="loading">暫時冇符合規則嘅股票</div>';
 
         document.getElementById('scanMeta').textContent =
-          `掃描至 ${data.as_of || '—'} · 宇宙 ${data.universe || '—'} · 已掃描 ${data.scanned || 0} 隻` +
+          `[${data.mode || 'daily'}] 掃描至 ${data.as_of || '—'} · 宇宙 ${data.universe || '—'} · 已掃描 ${data.scanned || 0} 隻` +
           ` · 流動性通過 ${data.liquid_rate_pct || 0}% · 符合規則 ${data.hits_count || 0} 隻` +
-          ` · 過濾：股價≥$5、成交量≥100萬`;
+          ` · 過濾：股價≥$5、成交量≥50萬`;
 
         results.style.display = 'grid';
         status.textContent = '完成';

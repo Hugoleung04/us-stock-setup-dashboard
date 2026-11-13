@@ -65,7 +65,7 @@ def run_scanner(mode="daily", limit=600, symbols=None, min_price=5.0, min_volume
     if not SCANNER.exists():
         return {"error": "day-trader-skill scanner not found."}
 
-    if mode == "daily" and not symbols:
+    if mode in ("daily", "orb") and not symbols:
         if not ensure_universe():
             return {"error": "Failed to build universe."}
 
@@ -107,11 +107,11 @@ def index():
 
 @app.route("/api/scan")
 def api_scan():
-    # Liquidity rules decided for active day/swing watching:
-    # - Price >= $5 (avoid penny stocks)
-    # - Volume >= 1,000,000 shares (basic liquidity)
-    # - Scan up to 600 symbols from the universe
-    data = run_scanner(mode="daily", limit=600, min_price=5.0, min_volume=1_000_000)
+    mode = request.args.get("mode", "daily")  # daily or orb
+    limit = 400 if mode == "orb" else 600
+    min_vol = 500_000
+
+    data = run_scanner(mode=mode, limit=limit, min_price=5.0, min_volume=min_vol)
     if "error" in data:
         return jsonify(data), 500
 
@@ -128,7 +128,7 @@ def api_scan():
 
     top = sorted(hits, key=lambda h: h.get("volume", 0), reverse=True)[:5]
 
-    # Auto-record top setups — dedupe: same symbol + same date only once
+    # Deduped recording
     recs = load_recs()
     today = datetime.utcnow().strftime("%Y-%m-%d")
     existing = {(r["symbol"], r["date"]) for r in recs}
@@ -143,6 +143,7 @@ def api_scan():
             "price": h.get("price"),
             "volume": h.get("volume"),
             "rsi": h.get("rsi"),
+            "mode": mode,
         })
         existing.add(key)
     save_recs(recs[-300:])
@@ -150,6 +151,7 @@ def api_scan():
     counts = data.get("counts", {})
     liquid_rate = round(data.get("scanned", 0) / max(counts.get("fetched", 1), 1) * 100, 1)
     return jsonify({
+        "mode": mode,
         "as_of": data.get("as_of"),
         "universe": data.get("universe"),
         "scanned": data.get("scanned"),
