@@ -16,24 +16,29 @@ This is educational tooling, not financial advice.
 Most day traders lose money. A stock matching a technical rule is not a prediction and not a recommendation to buy or sell.  
 Data comes from free public sources (Yahoo Finance, Nasdaq Trader) and can be delayed.
 
-## Setup
+## Deploy to Render (free)
+
+1. Push this repo to GitHub.
+2. Go to [render.com](https://render.com) → New → Web Service.
+3. Connect your GitHub repo.
+4. Render will detect `render.yaml` automatically, or set:
+   - **Build Command**: `bash build.sh && pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
+5. Deploy. You will get a public URL (e.g. `https://xxx.onrender.com`).
+
+**Note**: Free tier spins down after 15 minutes of inactivity. First load after sleep takes ~1 minute.
+
+## Local run
 
 ```bash
-# 1. Clone this repo
-git clone <your-repo-url>
-cd us-stock-setup-dashboard
-
-# 2. (Optional but recommended) Also clone the original skill for full scanner
-git clone https://github.com/Jakeschincariol/day-trader-skill.git ../day-trader-skill
-
-# 3. Install dependencies (only Flask is needed)
+# Optional: clone the skill next to this project or let build.sh do it
+bash build.sh
 pip install -r requirements.txt
-
-# 4. Run
 python app.py
 ```
 
 Open http://127.0.0.1:5000
+
 
 ## Files
 

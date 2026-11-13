@@ -6,3 +6,4 @@ venv/
 trader/
 *.log
 .DS_Store
+day-trader-skill/
