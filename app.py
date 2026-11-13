@@ -9,20 +9,35 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
-# Skill location: prefer local clone (for Render), fall back to sibling dir
+# Skill location
 BASE = Path(__file__).parent
 SKILL_DIR = BASE / "day-trader-skill"
 if not SKILL_DIR.exists():
     SKILL_DIR = BASE.parent / "day-trader-skill"
 
 SCANNER = SKILL_DIR / "trader-scanner" / "scan.py"
+REC_FILE = BASE / "recommendations.json"
 
 from sector_map import get_sector
+
+
+def load_recs():
+    if REC_FILE.exists():
+        try:
+            return json.loads(REC_FILE.read_text())
+        except Exception:
+            return []
+    return []
+
+
+def save_recs(recs):
+    REC_FILE.write_text(json.dumps(recs, indent=2))
 
 
 def ensure_universe():
@@ -33,7 +48,7 @@ def ensure_universe():
     if not SCANNER.exists():
         return False
     try:
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, str(SCANNER), "universe"],
             cwd=BASE,
             capture_output=True,
@@ -45,27 +60,32 @@ def ensure_universe():
         return False
 
 
-def run_scanner(mode="daily", limit=200, symbols=None):
+def run_scanner(mode="daily", limit=600, symbols=None, min_price=5.0, min_volume=1_000_000):
     """Run the day-trader-skill scanner and return parsed JSON."""
     if not SCANNER.exists():
-        return {"error": "day-trader-skill scanner not found. It should be cloned into day-trader-skill/"}
+        return {"error": "day-trader-skill scanner not found."}
 
-    # Auto-build universe on first run
     if mode == "daily" and not symbols:
         if not ensure_universe():
-            return {"error": "Failed to build universe. Try again in a moment."}
+            return {"error": "Failed to build universe."}
 
-    cmd = [sys.executable, str(SCANNER), mode, "--limit", str(limit), "--json"]
+    cmd = [
+        sys.executable, str(SCANNER), mode,
+        "--limit", str(limit),
+        "--min-price", str(min_price),
+        "--min-volume", str(min_volume),
+        "--json"
+    ]
     if symbols:
         cmd.extend(["--symbols", symbols])
 
     try:
         result = subprocess.run(
             cmd,
-            cwd=BASE,  # so trader/ folder is created in the project
+            cwd=BASE,
             capture_output=True,
             text=True,
-            timeout=180,
+            timeout=300,
         )
         output = result.stdout.strip()
         if not output:
@@ -75,7 +95,7 @@ def run_scanner(mode="daily", limit=200, symbols=None):
             return {"error": "No JSON in scanner output", "raw": output[:500]}
         return json.loads(output[start:])
     except subprocess.TimeoutExpired:
-        return {"error": "Scanner timed out"}
+        return {"error": "Scanner timed out (try smaller limit)"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -87,7 +107,11 @@ def index():
 
 @app.route("/api/scan")
 def api_scan():
-    data = run_scanner(mode="daily", limit=100)
+    # Liquidity rules decided for active day/swing watching:
+    # - Price >= $5 (avoid penny stocks)
+    # - Volume >= 1,000,000 shares (basic liquidity)
+    # - Scan up to 600 symbols from the universe
+    data = run_scanner(mode="daily", limit=600, min_price=5.0, min_volume=1_000_000)
     if "error" in data:
         return jsonify(data), 500
 
@@ -98,21 +122,103 @@ def api_scan():
         sectors.setdefault(sector, []).append(hit)
 
     sector_summary = [
-        {"sector": s, "count": len(items), "symbols": [h["symbol"] for h in items]}
+        {"sector": s, "count": len(items), "symbols": [h["symbol"] for h in items[:8]]}
         for s, items in sorted(sectors.items(), key=lambda x: -len(x[1]))
     ]
 
     top = sorted(hits, key=lambda h: h.get("volume", 0), reverse=True)[:5]
 
+    # Auto-record top setups for win-rate tracking
+    recs = load_recs()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    for h in top:
+        recs.append({
+            "date": today,
+            "symbol": h["symbol"],
+            "setups": h.get("setups", []),
+            "price": h.get("price"),
+            "volume": h.get("volume"),
+            "outcome": None,  # later: win / loss / pending
+        })
+    # Keep last 200 records
+    save_recs(recs[-200:])
+
+    counts = data.get("counts", {})
     return jsonify({
         "as_of": data.get("as_of"),
+        "universe": data.get("universe"),
         "scanned": data.get("scanned"),
+        "fetched": counts.get("fetched"),
+        "illiquid": counts.get("illiquid"),
         "hits_count": len(hits),
         "sector_summary": sector_summary,
         "top_setups": top,
         "note": data.get("note", "A scan is a list of charts that match a rule, not a list of stocks to buy."),
         "disclaimer": "Educational tooling only. Not financial advice. Most day traders lose money."
     })
+
+
+TIMEFRAMES = {
+    "1D": 1,
+    "1W": 7,
+    "1M": 30,
+    "6M": 180,
+}
+
+
+def days_since(date_str: str) -> int:
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d")
+        return (datetime.utcnow() - d).days
+    except Exception:
+        return 0
+
+
+@app.route("/api/recommendations")
+def api_recommendations():
+    recs = load_recs()
+    stats = {}
+    for tf, min_days in TIMEFRAMES.items():
+        eligible = [r for r in recs if days_since(r.get("date", "")) >= min_days and r.get(f"outcome_{tf}")]
+        wins = sum(1 for r in eligible if r.get(f"outcome_{tf}") == "win")
+        losses = sum(1 for r in eligible if r.get(f"outcome_{tf}") == "loss")
+        total_checked = wins + losses
+        stats[tf] = {
+            "checked": total_checked,
+            "wins": wins,
+            "losses": losses,
+            "win_rate_pct": round(wins / total_checked * 100, 1) if total_checked else None,
+        }
+
+    return jsonify({
+        "total": len(recs),
+        "stats": stats,
+        "recent": recs[-30:][::-1],
+    })
+
+
+@app.route("/api/recommendations/check")
+def api_check_all():
+    """Update performance for all timeframes where enough time has passed."""
+    recs = load_recs()
+    updated = 0
+    for r in recs:
+        if not r.get("price") or not r.get("date"):
+            continue
+        age = days_since(r["date"])
+        current = None
+        for tf, min_days in TIMEFRAMES.items():
+            if age >= min_days and not r.get(f"outcome_{tf}"):
+                if current is None:
+                    current = get_current_price(r["symbol"])
+                if current is not None:
+                    chg = round((current - r["price"]) / r["price"] * 100, 2)
+                    r[f"outcome_{tf}"] = "win" if current > r["price"] else "loss"
+                    r[f"change_{tf}"] = chg
+                    r["current_price"] = current
+                    updated += 1
+    save_recs(recs)
+    return jsonify({"updated": updated, "message": f"Updated {updated} timeframe results"})
 
 
 @app.route("/api/quote/<symbol>")
