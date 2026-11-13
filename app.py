@@ -205,6 +205,27 @@ def api_recommendations():
     })
 
 
+def get_current_price(symbol: str):
+    """Fetch current price using the alerts script. Returns float or None."""
+    alerts = SKILL_DIR / "trader-alerts" / "alerts.py"
+    if not alerts.exists():
+        return None
+    try:
+        r = subprocess.run(
+            [sys.executable, str(alerts), "quote", symbol.upper()],
+            capture_output=True, text=True, timeout=20
+        )
+        for token in r.stdout.split():
+            if token.startswith("$"):
+                try:
+                    return float(token.replace("$", "").replace(",", ""))
+                except ValueError:
+                    continue
+        return None
+    except Exception:
+        return None
+
+
 @app.route("/api/recommendations/check")
 def api_check_all():
     """Update performance. ORB always refreshes immediately."""
