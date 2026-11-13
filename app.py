@@ -25,10 +25,35 @@ SCANNER = SKILL_DIR / "trader-scanner" / "scan.py"
 from sector_map import get_sector
 
 
+def ensure_universe():
+    """Build trader/universe.txt if it does not exist."""
+    universe = BASE / "trader" / "universe.txt"
+    if universe.exists():
+        return True
+    if not SCANNER.exists():
+        return False
+    try:
+        result = subprocess.run(
+            [sys.executable, str(SCANNER), "universe"],
+            cwd=BASE,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        return universe.exists()
+    except Exception:
+        return False
+
+
 def run_scanner(mode="daily", limit=200, symbols=None):
     """Run the day-trader-skill scanner and return parsed JSON."""
     if not SCANNER.exists():
         return {"error": "day-trader-skill scanner not found. It should be cloned into day-trader-skill/"}
+
+    # Auto-build universe on first run
+    if mode == "daily" and not symbols:
+        if not ensure_universe():
+            return {"error": "Failed to build universe. Try again in a moment."}
 
     cmd = [sys.executable, str(SCANNER), mode, "--limit", str(limit), "--json"]
     if symbols:
