@@ -142,9 +142,50 @@
       <div id="recsSummary" class="meta" style="margin-bottom:12px;"></div>
       <div id="recsList"></div>
     </div>
+    <div class="card" id="extraCard" style="display:none;">
+      <h2 id="extraTitle">詳情</h2>
+      <div id="extraContent" class="meta"></div>
+    </div>
   </div>
 
   <script>
+    async function showPlan(symbol) {
+      const card = document.getElementById('extraCard');
+      const title = document.getElementById('extraTitle');
+      const content = document.getElementById('extraContent');
+      title.textContent = symbol + ' · 簡單計劃';
+      content.textContent = '計緊...';
+      card.style.display = 'block';
+      try {
+        const res = await fetch('/api/plan/' + symbol);
+        const d = await res.json();
+        if (d.error) { content.textContent = d.error; return; }
+        content.innerHTML = `
+          入場參考：$${d.entry}<br>
+          止蝕：$${d.stop}（-${d.risk_per_share}）<br>
+          目標：$${d.target}（${d.reward_risk}R）<br>
+          <span class="meta">${d.note}</span>
+        `;
+      } catch (e) { content.textContent = '失敗：' + e.message; }
+    }
+
+    async function showTM(symbol) {
+      const card = document.getElementById('extraCard');
+      const title = document.getElementById('extraTitle');
+      const content = document.getElementById('extraContent');
+      title.textContent = symbol + ' · Time Machine';
+      content.textContent = '模擬緊（可能要 30–60 秒）...';
+      card.style.display = 'block';
+      try {
+        const res = await fetch('/api/timemachine/' + symbol);
+        const d = await res.json();
+        if (d.error) { content.textContent = d.error; return; }
+        content.innerHTML = `
+          <pre style="white-space:pre-wrap;font-size:0.85rem;">${JSON.stringify(d, null, 2).slice(0, 800)}</pre>
+          <span class="meta">${d.note || ''}</span>
+        `;
+      } catch (e) { content.textContent = '失敗：' + e.message; }
+    }
     async function runScan(mode = 'daily') {
       const status = document.getElementById('status');
       const results = document.getElementById('results');
@@ -180,6 +221,8 @@
               <strong>${h.symbol}</strong>
               <span class="setup">${(h.setups||[]).join(', ')}</span>
               ${h.rsi ? `<span class="badge">RSI ${h.rsi}</span>` : ''}
+              <button class="secondary" style="padding:4px 8px;font-size:0.75rem;margin-left:6px;" onclick="showPlan('${h.symbol}')">計劃</button>
+              <button class="secondary" style="padding:4px 8px;font-size:0.75rem;" onclick="showTM('${h.symbol}')">模擬</button>
             </div>
             <div>
               $${h.price?.toFixed(2) || '—'}

@@ -261,19 +261,74 @@ def api_check_all():
     })
 
 
-@app.route("/api/quote/<symbol>")
-def api_quote(symbol):
-    alerts = SKILL_DIR / "trader-alerts" / "alerts.py"
-    if not alerts.exists():
-        return jsonify({"error": "alerts tool not found"})
+@app.route("/api/plan/<symbol>")
+def api_plan(symbol):
+    """Simple exit plan + risk note for a symbol using skill tools."""
+    symbol = symbol.upper()
+    # Get current price
+    price = get_current_price(symbol)
+    if not price:
+        return jsonify({"error": "Cannot get price"}), 400
+
+    # Simple plan: stop at -2%, target at +4% (2R), risk note
+    stop = round(price * 0.98, 2)
+    target = round(price * 1.04, 2)
+    risk_per_share = round(price - stop, 2)
+    reward_risk = 2.0
+
+    return jsonify({
+        "symbol": symbol,
+        "entry": price,
+        "stop": stop,
+        "target": target,
+        "risk_per_share": risk_per_share,
+        "reward_risk": reward_risk,
+        "note": "Simplified plan: stop -2%, target +4% (2R). Not from full skill engine.",
+        "disclaimer": "Educational only. Not a trade recommendation."
+    })
+
+
+@app.route("/api/timemachine/<symbol>")
+def api_timemachine(symbol):
+    """Run a quick timemachine-style check if available."""
+    symbol = symbol.upper()
+    tm = SKILL_DIR / "trader-timemachine" / "timemachine.py"
+    if not tm.exists():
+        return jsonify({"error": "timemachine tool not available", "symbol": symbol}), 404
+
+    price = get_current_price(symbol)
+    if not price:
+        return jsonify({"error": "Cannot get price"}), 400
+
+    stop = round(price * 0.98, 2)
+    target = round(price * 1.04, 2)
+
     try:
-        r = subprocess.run(
-            [sys.executable, str(alerts), "quote", symbol.upper()],
-            capture_output=True, text=True, timeout=30
+        result = subprocess.run(
+            [sys.executable, str(tm), "run",
+             "--symbol", symbol,
+             "--entry", str(price),
+             "--stop", str(stop),
+             "--target", str(target),
+             "--replays", "2000",
+             "--json"],
+            cwd=BASE,
+            capture_output=True,
+            text=True,
+            timeout=90,
         )
-        return jsonify({"output": r.stdout.strip()})
+        output = result.stdout.strip()
+        start = output.find("{")
+        if start == -1:
+            return jsonify({"error": "No JSON from timemachine", "raw": output[:300]})
+        data = json.loads(output[start:])
+        data["symbol"] = symbol
+        data["note"] = "Simplified run (2000 replays). Full skill uses 10,000."
+        return jsonify(data)
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Timemachine timed out"}), 504
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
